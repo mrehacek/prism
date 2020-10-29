@@ -193,6 +193,7 @@ const uiAnimTimeline = anime.timeline({
 
 
 function setup() {
+  cursor(CROSS);
   pixelDensity(2.0); // if 4k, for better performance turn lower
   let canvas = createCanvas(windowWidth, windowHeight);
   timerMs = millis();
@@ -206,6 +207,10 @@ function setup() {
     function() {
       uiAnimTimeline.play();
     }, 100);
+  setTimeout(
+      function() {
+        cursor(CROSS);
+      }, 1000);
 }
 
 function mapCubed(value, start1, stop1, start2, stop2) {
@@ -328,6 +333,7 @@ function keyPressed() {
     }
     isFullscreen = !fullscreen();
     fullscreen(isFullscreen);
+    isFullscreen ? noCursor() : cursor(CROSS);
   } 
   else if (key === "d") {
     isDebug = !isDebug;
