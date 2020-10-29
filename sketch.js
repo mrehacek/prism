@@ -23,6 +23,7 @@ let eyeX;
 let eyeY;
 
 let lastGazePoints = []
+let hasEnoughGazePoints = false;
 let readyToRender = false;
 
 
@@ -103,7 +104,7 @@ let collisionEyeListener = async function(data, clock) {
   lastGazePoints.push([data.x, data.y]);
 
   if (lastGazePoints.length > 4) {
-    readyToRender = true;
+    hasEnoughGazePoints = true;
 
     let sumX = 0;
     let sumY = 0;
@@ -150,15 +151,61 @@ let collisionEyeListener = async function(data, clock) {
 
 let lastFrameMillis = 0;
 
+const uiState = {
+  gazeTrainPointOpacity: 0.0,
+  trainingText1Opacity: 0.0,
+  trainingText2Opacity: 0.0,
+  trainingText3Opacity: 0.0
+}
+
+const uiAnimTimeline = anime.timeline({
+  loop: false,
+  autoplay: false,
+  easing: 'easeInOutSine',
+}).add({
+  targets: uiState,
+  trainingText1Opacity: 100,
+  duration: 500,
+  round: 1,
+  easing: 'linear',
+})
+.add({
+  targets: uiState,
+  trainingText2Opacity: 100,
+  duration: 500,
+  round: 1,
+  easing: 'linear',
+}, '+=1500')
+.add({
+  targets: uiState,
+  trainingText3Opacity: 100,
+  duration: 500,
+  round: 1,
+  easing: 'linear',
+}, '+=2100')
+.add({
+  targets: uiState,
+  gazeTrainPointOpacity: 100,
+  round: 1,
+  easing: 'linear',
+  duration: 300,
+}, '+=1000');
+
+
 function setup() {
   pixelDensity(2.0); // if 4k, for better performance turn lower
-  let canvas = createCanvas(windowWidth, windowHeight - 30);
+  let canvas = createCanvas(windowWidth, windowHeight);
   timerMs = millis();
   centerX = width / 2;
   eyeX = width / 2;
   centerY = height / 2;
   eyeY = height / 2;
   background(0);
+
+  setTimeout(
+    function() {
+      uiAnimTimeline.play();
+    }, 100);
 }
 
 function mapCubed(value, start1, stop1, start2, stop2) {
@@ -170,7 +217,11 @@ function mapCubed(value, start1, stop1, start2, stop2) {
 function draw() {
   const timePassedFromLastFrame = millis() - lastFrameMillis;
   lastFrameMillis = millis();
-  console.log("Time passed: "+timePassedFromLastFrame);
+  //console.log("Time passed: "+timePassedFromLastFrame);
+
+  if (isDebug && hasEnoughGazePoints) {
+    readyToRender = true;
+  }
 
   background(0,0,0,15);
   
@@ -179,7 +230,6 @@ function draw() {
   if (readyToRender && circleGenerators.length === 0) {
     circleGenerators.push(new CircleGenerator(centerX, centerY));
   }
-
   // visualize user gaze
   if (!isDebug) {
     push();
@@ -192,14 +242,39 @@ function draw() {
   //print fps and circle counts
   if (!isDebug) {
     push();
+    textAlign(LEFT);
     textSize(10);
     fill(255);
     //text(circleGenerators[0].getCircles().length, 10, 350);
-    text(eyeX, 10, 400);
-    text(eyeY, 40, 400);
-    text("eye dist from center: " + eyeDistFromCenter, 200, 400);
-    text("fps: " + frameRate(), 10, 420);
-    text("press space to reset, F to toggle fullscreen", 10, 440);
+    //text(eyeX, 10, 400);
+    //text(eyeY, 40, 400);
+    //text("eye dist from center: " + eyeDistFromCenter, 200, 400);
+    //text("fps: " + frameRate(), 70, height - 20);
+    textSize(16);
+    textAlign(CENTER);
+    fill(255, uiState.trainingText1Opacity);
+    text("The application recognizes where you look using your web camera.", width / 2, height / 2 - 100);
+    fill(255, uiState.trainingText2Opacity);
+    text("It needs to be trained first. Allow the access to camera in browser.", width / 2, height / 2 - 70);
+    fill(255, uiState.trainingText3Opacity);
+    text("Stare at each of the blue rectangles, and click on them 5 times. You can focus on the cursor.", width / 2, height / 2 + 50);
+    text("When gaze detection is good enough, F to fully immerse into the experience. Press <space> to reset circles.", width / 2, height / 2 + 80);
+
+    colorMode(HSB, 360, 100, 100, 100);
+    fill(200, 100, 100, uiState.gazeTrainPointOpacity);
+    const SIZE = 15, MARGIN = 20;
+    rect(MARGIN, MARGIN, SIZE, SIZE);
+    rect(width / 2, MARGIN, SIZE, SIZE);
+    rect(width - MARGIN - SIZE, MARGIN, SIZE, SIZE);
+
+    rect(MARGIN, height / 2, SIZE, SIZE);
+    rect(width / 2, height / 2, SIZE, SIZE);
+    rect(width - MARGIN - SIZE, height / 2, SIZE, SIZE);
+
+    rect(MARGIN, height - MARGIN - SIZE, SIZE, SIZE);
+    rect(width / 2, height - MARGIN - SIZE, SIZE, SIZE);
+    rect(width - MARGIN - SIZE, height - MARGIN - SIZE, SIZE, SIZE);
+
     pop();
   }
 
@@ -247,28 +322,35 @@ function keyPressed() {
     }
   } 
   else if (key === "f") {
+    if (!isDebug) {
+      isDebug = true;
+      hideDebug();
+    }
     isFullscreen = !fullscreen();
     fullscreen(isFullscreen);
   } 
   else if (key === "d") {
     isDebug = !isDebug;
-
-    if (isDebug) {
-      d3.select("#collisionSVG").style("visibility", "hidden");
-      d3.select("#webgazerVideoCanvas").style("visibility", "hidden");
-      d3.select("#webgazerFaceOverlay").style("visibility", "hidden");
-      d3.select("#webgazerFaceFeedbackBox").style("visibility", "hidden");
-      d3.select("#webgazerGazeDot").style("visibility", "hidden");
-      d3.select("#webgazerVideoFeed").style("visibility", "hidden");
-    } else {
-      d3.select("#collisionSVG").style("visibility", "visible");
-      d3.select("#webgazerVideoCanvas").style("visibility", "visible");
-      d3.select("#webgazerFaceOverlay").style("visibility", "visible");
-      d3.select("#webgazerFaceFeedbackBox").style("visibility", "visible");
-      d3.select("#webgazerGazeDot").style("visibility", "visible");
-      d3.select("#webgazerVideoFeed").style("visibility", "visible");
-    }
+    isDebug ? hideDebug() : showDebug();
   }
+}
+
+function hideDebug() {
+  d3.select("#collisionSVG").style("visibility", "hidden");
+  d3.select("#webgazerVideoCanvas").style("visibility", "hidden");
+  d3.select("#webgazerFaceOverlay").style("visibility", "hidden");
+  d3.select("#webgazerFaceFeedbackBox").style("visibility", "hidden");
+  d3.select("#webgazerGazeDot").style("visibility", "hidden");
+  d3.select("#webgazerVideoFeed").style("visibility", "hidden");
+}
+
+function showDebug() {
+  d3.select("#collisionSVG").style("visibility", "visible");
+  d3.select("#webgazerVideoCanvas").style("visibility", "visible");
+  d3.select("#webgazerFaceOverlay").style("visibility", "visible");
+  d3.select("#webgazerFaceFeedbackBox").style("visibility", "visible");
+  d3.select("#webgazerGazeDot").style("visibility", "visible");
+  d3.select("#webgazerVideoFeed").style("visibility", "visible");
 }
 
 //
